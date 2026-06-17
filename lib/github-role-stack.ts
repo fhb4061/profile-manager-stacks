@@ -12,7 +12,8 @@ export class GithubRoleStack extends cdk.Stack {
             clientIds: ["sts.amazonaws.com"]
         });
 
-        new aws_iam.Role(this, "GithubRole", {
+        // create role and entrust it to github idProvider
+        const role = new aws_iam.Role(this, "GithubRole", {
             roleName: "github-action-role",
             assumedBy: new aws_iam.WebIdentityPrincipal(
                 idProvider.openIdConnectProviderArn,
@@ -29,5 +30,46 @@ export class GithubRoleStack extends cdk.Stack {
                 }
             )
         });
+
+        // create policy statement
+        const statement = new aws_iam.PolicyStatement({
+            actions: [
+                "ecr:DescribeImageScanFindings",
+                "ecr:GetLifecyclePolicyPreview",
+                "ecr:GetDownloadUrlForLayer",
+                "ecr:DescribeImageReplicationStatus",
+                "ecr:DescribeImageSigningStatus",
+                "ecr:ListTagsForResource",
+                "ecr:UploadLayerPart",
+                "ecr:BatchGetRepositoryScanningConfiguration",
+                "ecr:BatchImportUpstreamImage",
+                "ecr:BatchGetImage",
+                "ecr:CompleteLayerUpload",
+                "ecr:TagResource",
+                "ecr:DescribeRepositories",
+                "ecr:GetImageCopyStatus",
+                "ecr:InitiateLayerUpload",
+                "ecr:BatchCheckLayerAvailability",
+                "ecr:GetRepositoryPolicy",
+                "ecr:GetLifecyclePolicy",
+                "ecr:PutImage",
+                "ecr:ValidatePullThroughCacheRule",
+                "ecr:GetRegistryPolicy",
+                "ecr:GetAccountSetting",
+                "ecr:DescribeRegistry",
+                "ecr:DescribeRepositoryCreationTemplates",
+                "ecr:GetAuthorizationToken",
+                "ecr:GetSigningConfiguration",
+                "ecr:GetRegistryScanningConfiguration"
+            ],
+            resources: [`arn:aws:ecr:*:${process.env.CDK_DEFAULT_ACCOUNT}:repository/*`]
+        });
+
+        // create policy with statement and attach it to github-action-role
+        new aws_iam.Policy(this, "GithubActionPolicy", {
+            policyName: "github-action-policies",
+            statements: [statement],
+            roles: [role]
+        })
     }
 }

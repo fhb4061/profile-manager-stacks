@@ -6,7 +6,7 @@ export class ECRStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    new aws_ecr.Repository(this, "TaneECR", {
+    new aws_ecr.Repository(this, "ECR", {
       repositoryName: "profile-repo",
       imageScanOnPush: true, // automatically scan for vulnerabilities
       imageTagMutability: aws_ecr.TagMutability.IMMUTABLE, // immutable to force versioning
