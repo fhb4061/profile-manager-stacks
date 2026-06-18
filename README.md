@@ -13,6 +13,15 @@ The `cdk.json` file tells the CDK Toolkit how to execute your app.
 * `npx cdk diff`    compare deployed stack with current state
 * `npx cdk synth`   emits the synthesized CloudFormation template
 
+`POST` curl command:
+
+```
+curl -X POST https://<API-ID>.execute-api.<REGION>.amazonaws.com/<stage>/job \
+    -H "X-Amz-Invocation-Type: Event" \
+    -H "Content-Type: application/json" \
+    -d '{}'
+```
+
 Architecture
 
 ![architecture](/docs/architecture.svg)
