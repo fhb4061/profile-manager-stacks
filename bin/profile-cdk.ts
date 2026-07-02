@@ -12,6 +12,7 @@ const prefix = 'backend-profile';
 new GithubRoleStack(app, 'GithubRoleStack', { env });
 
 const ecr = new ECRStack(app, 'ECRStack', { env });
+
 new ECSStack(app, "ECSStack", { env, repository: ecr.repository });
 
 new BackendStack(app, "BackendStack", {
