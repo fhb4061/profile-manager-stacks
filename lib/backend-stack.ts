@@ -1,7 +1,7 @@
 import { aws_apigateway, aws_dynamodb, aws_lambda, aws_logs } from 'aws-cdk-lib';
 import * as cdk from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
-import path from 'path';
+import * as path from 'path';
 
 type ApiStackProps = cdk.StackProps & {
     prefix: string;
@@ -15,12 +15,13 @@ export class BackendStack extends cdk.Stack {
         const profileTable = new aws_dynamodb.Table(this, `${props.prefix}-table`, {
             partitionKey: { name: 'username', type: aws_dynamodb.AttributeType.STRING },
             tableName: `${props.prefix}-table`,
-            removalPolicy: cdk.RemovalPolicy.DESTROY
+            removalPolicy: cdk.RemovalPolicy.DESTROY,
         });
 
         // Create log group for lambda function
         const fnLogGroup = new aws_logs.LogGroup(this, `${props.prefix}-fn-log-group`, {
-            retention: aws_logs.RetentionDays.ONE_DAY
+            retention: aws_logs.RetentionDays.ONE_DAY,
+            logGroupName: `${props.prefix}-fn-log-group`
         });
 
         // lambda function
@@ -38,7 +39,8 @@ export class BackendStack extends cdk.Stack {
 
         // create log group for API Gateway
         const apiGatewayLogGroup = new aws_logs.LogGroup(this, `${props.prefix}-apigw-log-group`, {
-            retention: aws_logs.RetentionDays.ONE_DAY
+            retention: aws_logs.RetentionDays.ONE_DAY,
+            logGroupName: `${props.prefix}-apigw-log-group`
         });
 
         // API Gateway: Create a REST API with a lambda integration
