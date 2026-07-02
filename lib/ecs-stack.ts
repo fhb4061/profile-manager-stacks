@@ -24,7 +24,7 @@ export class ECSStack extends cdk.Stack {
                 rollback: true
             },
             taskImageOptions: {
-                image: aws_ecs.ContainerImage.fromEcrRepository(props.repository, "3d78bba494d8a045e154598359e4d050968d0aba") // is there a way to make this tag reactive to changes?
+                image: aws_ecs.ContainerImage.fromEcrRepository(props.repository) // is there a way to make this tag reactive to changes?
             }
         })
     }
