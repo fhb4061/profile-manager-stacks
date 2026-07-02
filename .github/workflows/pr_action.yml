@@ -1,0 +1,26 @@
+name: "Test"
+
+# on:
+#     pull_request:
+#       branches:
+#         - master
+on:
+    push:
+        branches:
+            - ecs-stack
+
+jobs:
+    TestStack:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v5
+            
+            - name: Install node
+              uses: actions/setup-node@v6
+
+            - name: Install app
+              run: npm ci
+
+            - name: Run tests
+              run: npm test
