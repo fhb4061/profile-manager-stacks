@@ -16,11 +16,17 @@ The `cdk.json` file tells the CDK Toolkit how to execute your app.
 `POST` curl command:
 
 ```
-curl -X POST https://<API-ID>.execute-api.<REGION>.amazonaws.com/<stage>/job \
-    -H "X-Amz-Invocation-Type: Event" \
+curl -X POST https://<API-ID>.execute-api.<REGION>.amazonaws.com/<stage>/profile \
+    -H "Authorization: Bearer <COGNITO_JWT>" \
     -H "Content-Type: application/json" \
-    -d '{}'
+    -d '{"displayName":"Pat"}'
 ```
+
+Notes
+
+- `POST /profile` is protected by Cognito User Pool auth.
+- The Lambda is deployed from an ECR image and created as a synchronous create API.
+- Profile records are keyed by Cognito `sub`.
 
 Architecture
 
