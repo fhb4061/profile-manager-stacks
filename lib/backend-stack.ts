@@ -1,19 +1,50 @@
-import { aws_apigateway, aws_dynamodb, aws_lambda, aws_logs } from 'aws-cdk-lib';
+import { aws_apigateway, aws_cognito, aws_dynamodb, aws_ecr, aws_iam, aws_lambda, aws_logs } from 'aws-cdk-lib';
 import * as cdk from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
-import * as path from 'path';
 
 type ApiStackProps = cdk.StackProps & {
     prefix: string;
+    lambdaRepository: aws_ecr.Repository;
 }
 
 export class BackendStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props: ApiStackProps) {
         super(scope, id, props);
 
+        // Cognito user pool
+        const userPool = new aws_cognito.UserPool(this, `${props.prefix}-user-pool`, {
+            selfSignUpEnabled: true,
+            signInAliases: {
+                email: true,
+            },
+            autoVerify: {
+                email: true,
+            },
+            standardAttributes: {
+                email: {
+                    required: true,
+                    mutable: true,
+                },
+            },
+            userVerification: {
+                emailStyle: aws_cognito.VerificationEmailStyle.CODE,
+            },
+            removalPolicy: cdk.RemovalPolicy.DESTROY,
+        });
+
+        new aws_cognito.UserPoolClient(this, `${props.prefix}-user-pool-client`, {
+            userPool,
+            generateSecret: false,
+            preventUserExistenceErrors: true,
+            authFlows: {
+                userPassword: true,
+                userSrp: true,
+            },
+        });
+
         // dynamoDB
         const profileTable = new aws_dynamodb.Table(this, `${props.prefix}-table`, {
-            partitionKey: { name: 'username', type: aws_dynamodb.AttributeType.STRING },
+            partitionKey: { name: 'sub', type: aws_dynamodb.AttributeType.STRING },
             tableName: `${props.prefix}-table`,
             removalPolicy: cdk.RemovalPolicy.DESTROY,
         });
@@ -24,15 +55,21 @@ export class BackendStack extends cdk.Stack {
             logGroupName: `${props.prefix}-fn-log-group`
         });
 
+        const profileHandlerRole = new aws_iam.Role(this, `${props.prefix}-fn-role`, {
+            assumedBy: new aws_iam.ServicePrincipal('lambda.amazonaws.com'),
+            managedPolicies: [
+                aws_iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole')
+            ]
+        });
+
         // lambda function
-        const profileHandler = new aws_lambda.Function(this, `${props.prefix}-fn`, {
-            runtime: aws_lambda.Runtime.NODEJS_20_X,
-            handler: 'profile_handler.handler',
-            code: aws_lambda.Code.fromAsset(path.join(__dirname, '../assets/lambda-functions')),
+        const profileHandler = new aws_lambda.DockerImageFunction(this, `${props.prefix}-fn`, {
+            code: aws_lambda.DockerImageCode.fromEcr(props.lambdaRepository),
             environment: {
                 PROFILE_TABLE: profileTable.tableName
             },
-            logGroup: fnLogGroup
+            logGroup: fnLogGroup,
+            role: profileHandlerRole
         });
         // grant lambda permission to write to dynamoDB
         profileTable.grantReadWriteData(profileHandler);
@@ -51,48 +88,23 @@ export class BackendStack extends cdk.Stack {
             cloudWatchRole: true,
             deployOptions: {
                 metricsEnabled: true,
-                dataTraceEnabled: true,
+                dataTraceEnabled: false,
                 accessLogDestination: new aws_apigateway.LogGroupLogDestination(apiGatewayLogGroup),
                 accessLogFormat: aws_apigateway.AccessLogFormat.jsonWithStandardFields(),
                 loggingLevel: aws_apigateway.MethodLoggingLevel.ERROR
             }
         });
 
+        const authorizer = new aws_apigateway.CognitoUserPoolsAuthorizer(this, `${props.prefix}-authorizer`, {
+            cognitoUserPools: [userPool],
+        });
+
         const profile = api.root.addResource('profile');
 
         // create profile
-        profile.addMethod("POST", new aws_apigateway.LambdaIntegration(profileHandler, {
-            proxy: false,
-            requestParameters: {
-                'integration.request.header.X-Amz-Invocation-Type': "'Event'"
-            },
-            requestTemplates: {
-                'application/json': `{
-                    "profileId": "$context.requestId",
-                    "body": $input.json('$')
-                }`
-            },
-            integrationResponses: [
-                {
-                    statusCode: '200',
-                    responseTemplates: {
-                        'application/json': `{"profileId": "$context.requetId"}`
-                    }
-                },
-                {
-                    statusCode: "500",
-                    responseTemplates: {
-                        'application/json': `{
-                            "error": "An error occurred while processing the request.",
-                            "details": "$context.integrationErrorMessage"
-                        }`
-                    }
-                }
-            ]
-        }),
-            {
-                methodResponses: [{ statusCode: "200" }, { statusCode: "500" }]
-            }
-        );
+        profile.addMethod("POST", new aws_apigateway.LambdaIntegration(profileHandler), {
+            authorizer,
+            authorizationType: aws_apigateway.AuthorizationType.COGNITO,
+        });
     }
 }

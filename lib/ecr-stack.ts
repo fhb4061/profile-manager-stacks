@@ -4,6 +4,7 @@ import { Construct } from 'constructs';
 
 export class ECRStack extends cdk.Stack {
   public readonly repository: aws_ecr.Repository;
+  public readonly lambdaRepository: aws_ecr.Repository;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -16,6 +17,14 @@ export class ECRStack extends cdk.Stack {
       emptyOnDelete: true // required to destrory a NON-EMPTY repo
     });
 
+    const lambdaRepository = new aws_ecr.Repository(this, "LambdaECR", {
+      repositoryName: "profile-backend-lambda",
+      imageScanOnPush: true,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      emptyOnDelete: true
+    });
+
     this.repository = repository;
+    this.lambdaRepository = lambdaRepository;
   }
 }

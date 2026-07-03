@@ -17,5 +17,6 @@ new ECSStack(app, "ECSStack", { env, repository: ecr.repository });
 
 new BackendStack(app, "BackendStack", {
   env,
-  prefix
+  prefix,
+  lambdaRepository: ecr.lambdaRepository
 });
