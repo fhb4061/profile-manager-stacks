@@ -71,6 +71,7 @@ export class BackendStack extends cdk.Stack {
             logGroup: fnLogGroup,
             role: profileHandlerRole
         });
+
         // grant lambda permission to write to dynamoDB
         profileTable.grantReadWriteData(profileHandler);
 

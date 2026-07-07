@@ -6,7 +6,7 @@ type ECSStackProps = cdk.StackProps & {
     repository: aws_ecr.Repository;
 }
 
-export class ECSStack extends cdk.Stack {
+export class FrontendStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props: ECSStackProps) {
         super(scope, id, props);
 
