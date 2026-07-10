@@ -52,7 +52,8 @@ export class BackendStack extends cdk.Stack {
         // Create log group for lambda function
         const fnLogGroup = new aws_logs.LogGroup(this, `${props.prefix}-fn-log-group`, {
             retention: aws_logs.RetentionDays.ONE_DAY,
-            logGroupName: `${props.prefix}-fn-log-group`
+            logGroupName: `${props.prefix}-fn-log-group`,
+            removalPolicy: cdk.RemovalPolicy.DESTROY
         });
 
         const profileHandlerRole = new aws_iam.Role(this, `${props.prefix}-fn-role`, {
@@ -78,7 +79,8 @@ export class BackendStack extends cdk.Stack {
         // create log group for API Gateway
         const apiGatewayLogGroup = new aws_logs.LogGroup(this, `${props.prefix}-apigw-log-group`, {
             retention: aws_logs.RetentionDays.ONE_DAY,
-            logGroupName: `${props.prefix}-apigw-log-group`
+            logGroupName: `${props.prefix}-apigw-log-group`,
+            removalPolicy: cdk.RemovalPolicy.DESTROY
         });
 
         // API Gateway: Create a REST API with a lambda integration
