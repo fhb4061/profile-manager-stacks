@@ -5,42 +5,12 @@ import { Construct } from 'constructs';
 type ApiStackProps = cdk.StackProps & {
     prefix: string;
     lambdaRepository: aws_ecr.Repository;
+    userPool: aws_cognito.UserPool;
 }
 
 export class BackendStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props: ApiStackProps) {
         super(scope, id, props);
-
-        // Cognito user pool
-        const userPool = new aws_cognito.UserPool(this, `${props.prefix}-user-pool`, {
-            selfSignUpEnabled: true,
-            signInAliases: {
-                email: true,
-            },
-            autoVerify: {
-                email: true,
-            },
-            standardAttributes: {
-                email: {
-                    required: true,
-                    mutable: true,
-                },
-            },
-            userVerification: {
-                emailStyle: aws_cognito.VerificationEmailStyle.CODE,
-            },
-            removalPolicy: cdk.RemovalPolicy.DESTROY,
-        });
-
-        new aws_cognito.UserPoolClient(this, `${props.prefix}-user-pool-client`, {
-            userPool,
-            generateSecret: false,
-            preventUserExistenceErrors: true,
-            authFlows: {
-                userPassword: true,
-                userSrp: true,
-            },
-        });
 
         // dynamoDB
         const profileTable = new aws_dynamodb.Table(this, `${props.prefix}-table`, {
@@ -99,7 +69,7 @@ export class BackendStack extends cdk.Stack {
         });
 
         const authorizer = new aws_apigateway.CognitoUserPoolsAuthorizer(this, `${props.prefix}-authorizer`, {
-            cognitoUserPools: [userPool],
+            cognitoUserPools: [props.userPool],
         });
 
         const profile = api.root.addResource('profile');
