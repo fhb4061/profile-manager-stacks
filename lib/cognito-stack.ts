@@ -30,6 +30,14 @@ export class CognitoStack extends cdk.Stack {
                     required: true,
                     mutable: true,
                 },
+                familyName: {
+                    required: true,
+                    mutable: true
+                },
+                givenName: {
+                    required: true,
+                    mutable: true
+                }
             },
             userVerification: {
                 emailStyle: aws_cognito.VerificationEmailStyle.CODE,
