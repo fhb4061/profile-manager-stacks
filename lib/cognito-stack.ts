@@ -4,10 +4,13 @@ import { Construct } from 'constructs';
 
 type CognitoStackProps = cdk.StackProps & {
     prefix: string;
+    callbackUrls: string[];
+    logoutUrls: string[];
 }
 
 export class CognitoStack extends cdk.Stack {
     public readonly userPool: aws_cognito.UserPool;
+    public readonly userPoolDomain: aws_cognito.UserPoolDomain;
 
     constructor(scope: Construct, id: string, props: CognitoStackProps) {
         super(scope, id, props);
@@ -27,6 +30,14 @@ export class CognitoStack extends cdk.Stack {
                     required: true,
                     mutable: true,
                 },
+                familyName: {
+                    required: true,
+                    mutable: true
+                },
+                givenName: {
+                    required: true,
+                    mutable: true
+                }
             },
             userVerification: {
                 emailStyle: aws_cognito.VerificationEmailStyle.CODE,
@@ -34,16 +45,48 @@ export class CognitoStack extends cdk.Stack {
             removalPolicy: cdk.RemovalPolicy.DESTROY,
         });
 
-        new aws_cognito.UserPoolClient(this, `${props.prefix}-user-pool-client`, {
+        const userPoolDomain = new aws_cognito.UserPoolDomain(this, `${props.prefix}-user-pool-domain`, {
             userPool,
-            userPoolClientName: "Profile maganer",
+            cognitoDomain: {
+                domainPrefix: `${props.prefix}-${cdk.Aws.ACCOUNT_ID}`,
+            },
+        });
+
+        const userPoolClient = new aws_cognito.UserPoolClient(this, `${props.prefix}-user-pool-client`, {
+            userPool,
+            userPoolClientName: "Profile manager",
             preventUserExistenceErrors: true,
             authFlows: {
                 userPassword: true,
                 userSrp: true,
             },
+            oAuth: {
+                flows: {
+                    authorizationCodeGrant: true,
+                },
+                scopes: [
+                    aws_cognito.OAuthScope.OPENID,
+                    aws_cognito.OAuthScope.EMAIL,
+                    aws_cognito.OAuthScope.PROFILE,
+                ],
+                callbackUrls: props.callbackUrls,
+                logoutUrls: props.logoutUrls,
+            },
         });
 
         this.userPool = userPool;
+        this.userPoolDomain = userPoolDomain;
+
+        new cdk.CfnOutput(this, 'UserPoolId', {
+            value: userPool.userPoolId,
+        });
+
+        new cdk.CfnOutput(this, 'UserPoolClientId', {
+            value: userPoolClient.userPoolClientId,
+        });
+
+        new cdk.CfnOutput(this, 'HostedUIDomain', {
+            value: userPoolDomain.baseUrl(),
+        });
     }
 }

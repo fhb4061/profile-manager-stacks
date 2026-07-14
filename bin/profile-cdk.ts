@@ -14,7 +14,13 @@ new GithubRoleStack(app, 'GithubRoleStack', { env });
 
 const ecr = new ECRStack(app, 'ECRStack', { env });
 
-const cognito = new CognitoStack(app, 'CognitoStack', { env, prefix });
+// TODO: replace with the frontend's real domain once one exists (Cognito requires HTTPS callbacks except localhost)
+const cognito = new CognitoStack(app, 'CognitoStack', {
+  env,
+  prefix,
+  callbackUrls: ['http://localhost:5173/'],
+  logoutUrls: ['http://localhost:5173/'],
+});
 
 new BackendStack(app, "BackendStack", {
   env,
