@@ -32,7 +32,7 @@ Browser login (Hosted UI)
 
 - The Cognito User Pool Client is configured for the OAuth authorization-code flow via Cognito's managed Hosted UI (no custom domain needed).
 - `CognitoStack` outputs `UserPoolId`, `UserPoolClientId`, and `HostedUIDomain` — read these (e.g. `aws cloudformation describe-stacks --stack-name CognitoStack`) from the frontend repo to build the Hosted UI login URL and validate tokens.
-- Callback/logout URLs are currently placeholders (`http://localhost:3000/...`) set in `bin/profile-cdk.ts`; update them once the frontend has a real (HTTPS) URL — Cognito only allows non-HTTPS callbacks for `localhost`.
+- Callback/logout URLs are currently placeholders (`http://localhost:5173/...`) set in `bin/profile-cdk.ts`; update them once the frontend has a real (HTTPS) URL — Cognito only allows non-HTTPS callbacks for `localhost`.
 
 Architecture
 
