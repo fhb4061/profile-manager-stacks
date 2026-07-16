@@ -6,18 +6,12 @@ type ApiStackProps = cdk.StackProps & {
     prefix: string;
     lambdaRepository: aws_ecr.Repository;
     userPool: aws_cognito.UserPool;
+    profileTable: aws_dynamodb.Table;
 }
 
 export class BackendStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props: ApiStackProps) {
         super(scope, id, props);
-
-        // dynamoDB
-        const profileTable = new aws_dynamodb.Table(this, `${props.prefix}-table`, {
-            partitionKey: { name: 'sub', type: aws_dynamodb.AttributeType.STRING },
-            tableName: `${props.prefix}-table`,
-            removalPolicy: cdk.RemovalPolicy.DESTROY,
-        });
 
         // Create log group for lambda function
         const fnLogGroup = new aws_logs.LogGroup(this, `${props.prefix}-fn-log-group`, {
@@ -33,18 +27,21 @@ export class BackendStack extends cdk.Stack {
             ]
         });
 
-        // lambda function
+        // lambda function: single handler routing all /profile(s) endpoints internally
         const profileHandler = new aws_lambda.DockerImageFunction(this, `${props.prefix}-fn`, {
             code: aws_lambda.DockerImageCode.fromEcr(props.lambdaRepository),
             environment: {
-                PROFILE_TABLE: profileTable.tableName
+                PROFILE_TABLE: props.profileTable.tableName
             },
             logGroup: fnLogGroup,
             role: profileHandlerRole
         });
 
-        // grant lambda permission to write to dynamoDB
-        profileTable.grantReadWriteData(profileHandler);
+        // least privilege: the API never creates or deletes rows
+        profileHandlerRole.addToPolicy(new aws_iam.PolicyStatement({
+            actions: ['dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:Scan'],
+            resources: [props.profileTable.tableArn],
+        }));
 
         // create log group for API Gateway
         const apiGatewayLogGroup = new aws_logs.LogGroup(this, `${props.prefix}-apigw-log-group`, {
@@ -64,7 +61,9 @@ export class BackendStack extends cdk.Stack {
                 dataTraceEnabled: false,
                 accessLogDestination: new aws_apigateway.LogGroupLogDestination(apiGatewayLogGroup),
                 accessLogFormat: aws_apigateway.AccessLogFormat.jsonWithStandardFields(),
-                loggingLevel: aws_apigateway.MethodLoggingLevel.ERROR
+                loggingLevel: aws_apigateway.MethodLoggingLevel.ERROR,
+                throttlingRateLimit: 50,
+                throttlingBurstLimit: 100
             }
         });
 
@@ -72,12 +71,25 @@ export class BackendStack extends cdk.Stack {
             cognitoUserPools: [props.userPool],
         });
 
-        const profile = api.root.addResource('profile');
-
-        // create profile
-        profile.addMethod("POST", new aws_apigateway.LambdaIntegration(profileHandler), {
+        const integration = new aws_apigateway.LambdaIntegration(profileHandler);
+        const cognitoAuth = {
             authorizer,
             authorizationType: aws_apigateway.AuthorizationType.COGNITO,
+        };
+
+        // /profile: always the caller's own row (sub comes from the JWT, never the client)
+        const profile = api.root.addResource('profile');
+        profile.addMethod('GET', integration, cognitoAuth);
+        profile.addMethod('PUT', integration, cognitoAuth);
+
+        // /profiles: directory of public fields; /profiles/{sub}: another user's public fields
+        const profiles = api.root.addResource('profiles');
+        profiles.addMethod('GET', integration, cognitoAuth);
+        const profileBySub = profiles.addResource('{sub}');
+        profileBySub.addMethod('GET', integration, cognitoAuth);
+
+        new cdk.CfnOutput(this, 'ApiFunctionName', {
+            value: profileHandler.functionName,
         });
     }
 }
