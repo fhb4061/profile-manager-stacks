@@ -18,8 +18,8 @@ const ecr = new ECRStack(app, 'ECRStack', { env });
 const cognito = new CognitoStack(app, 'CognitoStack', {
   env,
   prefix,
-  callbackUrls: ['http://localhost:5173/'],
-  logoutUrls: ['http://localhost:5173/'],
+  callbackUrls: ['http://localhost:5173/', 'http://localhost:5173/callback'],
+  logoutUrls: ['http://localhost:5173/', 'http://localhost:5173/login'],
 });
 
 new BackendStack(app, "BackendStack", {
