@@ -80,6 +80,20 @@ describe('Photo stack test', () => {
         });
     });
 
+    test('bucket allows POST uploads from the local dev frontend origin', () => {
+        template.hasResourceProperties('AWS::S3::Bucket', {
+            CorsConfiguration: {
+                CorsRules: Match.arrayWith([
+                    Match.objectLike({
+                        AllowedOrigins: ['http://localhost:5173'],
+                        AllowedMethods: ['POST'],
+                        AllowedHeaders: ['*'],
+                    }),
+                ]),
+            },
+        });
+    });
+
     test('uploads under photos/ trigger the validation lambda', () => {
         template.hasResourceProperties('Custom::S3BucketNotifications', {
             NotificationConfiguration: {
