@@ -1,4 +1,4 @@
-import { aws_apigateway, aws_cognito, aws_dynamodb, aws_ecr, aws_iam, aws_lambda, aws_logs } from 'aws-cdk-lib';
+import { aws_apigateway, aws_cognito, aws_dynamodb, aws_ecr, aws_iam, aws_lambda, aws_logs, aws_s3 } from 'aws-cdk-lib';
 import * as cdk from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
 
@@ -7,6 +7,8 @@ type ApiStackProps = cdk.StackProps & {
     lambdaRepository: aws_ecr.Repository;
     userPool: aws_cognito.UserPool;
     profileTable: aws_dynamodb.Table;
+    photoBucket: aws_s3.Bucket;
+    cloudFrontDomain: string;
 }
 
 export class BackendStack extends cdk.Stack {
@@ -29,9 +31,13 @@ export class BackendStack extends cdk.Stack {
 
         // lambda function: single handler routing all /profile(s) endpoints internally
         const profileHandler = new aws_lambda.DockerImageFunction(this, `${props.prefix}-fn`, {
-            code: aws_lambda.DockerImageCode.fromEcr(props.lambdaRepository),
+            code: aws_lambda.DockerImageCode.fromEcr(props.lambdaRepository, { tagOrDigest: "sha256:0b92ee3d362b7c045199d5911a5782824223e28095350b296608ead9c37cd199" }),
+            memorySize: 512,
+            timeout: cdk.Duration.seconds(10),
             environment: {
-                PROFILE_TABLE: props.profileTable.tableName
+                PROFILE_TABLE: props.profileTable.tableName,
+                PHOTO_BUCKET: props.photoBucket.bucketName,
+                CLOUDFRONT_DOMAIN: props.cloudFrontDomain,
             },
             logGroup: fnLogGroup,
             role: profileHandlerRole
@@ -41,6 +47,13 @@ export class BackendStack extends cdk.Stack {
         profileHandlerRole.addToPolicy(new aws_iam.PolicyStatement({
             actions: ['dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:Scan'],
             resources: [props.profileTable.tableArn],
+        }));
+
+        // signs presigned POSTs; the POST's own conditions (exact key, content-type,
+        // content-length-range) are what actually restrict a caller to their own sub
+        profileHandlerRole.addToPolicy(new aws_iam.PolicyStatement({
+            actions: ['s3:PutObject'],
+            resources: [`${props.photoBucket.bucketArn}/photos/*`],
         }));
 
         // create log group for API Gateway
@@ -56,6 +69,11 @@ export class BackendStack extends cdk.Stack {
             handler: profileHandler,
             proxy: false,
             cloudWatchRole: true,
+            defaultCorsPreflightOptions: {
+                allowOrigins: aws_apigateway.Cors.ALL_ORIGINS,
+                allowMethods: aws_apigateway.Cors.ALL_METHODS,
+                allowHeaders: aws_apigateway.Cors.DEFAULT_HEADERS,
+            },
             deployOptions: {
                 metricsEnabled: true,
                 dataTraceEnabled: false,
@@ -87,6 +105,10 @@ export class BackendStack extends cdk.Stack {
         profiles.addMethod('GET', integration, cognitoAuth);
         const profileBySub = profiles.addResource('{sub}');
         profileBySub.addMethod('GET', integration, cognitoAuth);
+
+        // /profile/photo: requests a presigned S3 POST scoped to the caller's own sub
+        const profilePhoto = profile.addResource('photo');
+        profilePhoto.addMethod('POST', integration, cognitoAuth);
 
         new cdk.CfnOutput(this, 'ApiFunctionName', {
             value: profileHandler.functionName,

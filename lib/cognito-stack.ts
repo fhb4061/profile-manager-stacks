@@ -67,6 +67,7 @@ export class CognitoStack extends cdk.Stack {
         const postConfirmationHandler = new aws_lambda.DockerImageFunction(this, `${props.prefix}-post-confirmation-fn`, {
             code: aws_lambda.DockerImageCode.fromEcr(props.lambdaRepository, {
                 cmd: props.postConfirmationCmd,
+                tagOrDigest: "sha256:0b92ee3d362b7c045199d5911a5782824223e28095350b296608ead9c37cd199"
             }),
             memorySize: 1769,
             environment: {
