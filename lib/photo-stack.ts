@@ -21,6 +21,12 @@ export class PhotoStack extends cdk.Stack {
         this.bucket = new aws_s3.Bucket(this, `${props.prefix}-photo-bucket`, {
             blockPublicAccess: aws_s3.BlockPublicAccess.BLOCK_ALL,
             removalPolicy: cdk.RemovalPolicy.DESTROY,
+            // TODO: replace with the frontend's real domain once one exists
+            cors: [{
+                allowedOrigins: ['http://localhost:5173'],
+                allowedMethods: [aws_s3.HttpMethods.POST],
+                allowedHeaders: ['*'],
+            }],
         });
 
         this.distribution = new aws_cloudfront.Distribution(this, `${props.prefix}-photo-distribution`, {
