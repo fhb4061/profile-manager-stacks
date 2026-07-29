@@ -8,6 +8,7 @@ type PhotoStackProps = cdk.StackProps & {
     profileTable: aws_dynamodb.Table;
     // TODO: replace with the real handler class once it exists in the Java backend repo
     photoValidationCmd: string[];
+    allowedOrigins: string[];
 }
 
 export class PhotoStack extends cdk.Stack {
@@ -21,9 +22,8 @@ export class PhotoStack extends cdk.Stack {
         this.bucket = new aws_s3.Bucket(this, `${props.prefix}-photo-bucket`, {
             blockPublicAccess: aws_s3.BlockPublicAccess.BLOCK_ALL,
             removalPolicy: cdk.RemovalPolicy.DESTROY,
-            // TODO: replace with the frontend's real domain once one exists
             cors: [{
-                allowedOrigins: ['http://localhost:5173'],
+                allowedOrigins: props.allowedOrigins,
                 allowedMethods: [aws_s3.HttpMethods.POST],
                 allowedHeaders: ['*'],
             }],
@@ -77,5 +77,25 @@ export class PhotoStack extends cdk.Stack {
             new aws_s3_notifications.LambdaDestination(this.validationHandler),
             { prefix: 'photos/' },
         );
+
+        new cdk.CfnOutput(this, 'BucketName', {
+            value: this.bucket.bucketName,
+            description: 'Photo bucket (CFN-generated name)',
+        });
+
+        new cdk.CfnOutput(this, 'DistributionDomain', {
+            value: this.distribution.distributionDomainName,
+            description: 'CloudFront domain serving photos',
+        });
+
+        new cdk.CfnOutput(this, 'DistributionId', {
+            value: this.distribution.distributionId,
+            description: 'For manual CloudFront invalidation',
+        });
+
+        new cdk.CfnOutput(this, 'ValidationFunctionName', {
+            value: this.validationHandler.functionName,
+            description: 'Photo validation Lambda, for manual invoke/log-tail/update-function-code',
+        });
     }
 }

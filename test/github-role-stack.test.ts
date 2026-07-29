@@ -32,4 +32,8 @@ describe("Github role, policy, and provider test", () => {
             }
         });
     })
+
+    test("output exposes the role ARN for GitHub Actions workflow config", () => {
+        template.hasOutput('RoleArn', {});
+    })
 });

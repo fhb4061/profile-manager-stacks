@@ -64,7 +64,7 @@ export class GithubRoleStack extends cdk.Stack {
 
 
         // create new Role entrusted to idProvider with managed policies in place
-        new aws_iam.Role(this, "GithubRole", {
+        const githubRole = new aws_iam.Role(this, "GithubRole", {
             roleName: "github-action-role",
             managedPolicies: [managedPolicy],
             assumedBy: new aws_iam.WebIdentityPrincipal(
@@ -81,6 +81,11 @@ export class GithubRoleStack extends cdk.Stack {
                     }
                 }
             )
+        });
+
+        new cdk.CfnOutput(this, 'RoleArn', {
+            value: githubRole.roleArn,
+            description: 'Paste into GitHub Actions as the role-to-assume for OIDC login',
         });
     }
 }

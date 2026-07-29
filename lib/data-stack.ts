@@ -19,5 +19,10 @@ export class DataStack extends cdk.Stack {
             billingMode: aws_dynamodb.BillingMode.PAY_PER_REQUEST,
             removalPolicy: cdk.RemovalPolicy.DESTROY,
         });
+
+        new cdk.CfnOutput(this, 'TableName', {
+            value: this.profileTable.tableName,
+            description: 'DynamoDB table backing profiles (CFN-generated name)',
+        });
     }
 }

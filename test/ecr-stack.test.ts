@@ -7,13 +7,14 @@ const stack = new ECRStack.ECRStack(app, 'MyTestStack');
 const template = Template.fromStack(stack);
 
 describe('ECR stack test', () => {
-    test('frontend and lambda repositories created', () => {
-        template.hasResourceProperties('AWS::ECR::Repository', {
-            RepositoryName: 'profile-manager-fe'
-        });
-
+    test('lambda repository created', () => {
+        template.resourceCountIs('AWS::ECR::Repository', 1);
         template.hasResourceProperties('AWS::ECR::Repository', {
             RepositoryName: 'profile-backend-lambda'
         });
+    });
+
+    test('output exposes the repository URI as the docker push target', () => {
+        template.hasOutput('LambdaRepositoryUri', {});
     });
 });
