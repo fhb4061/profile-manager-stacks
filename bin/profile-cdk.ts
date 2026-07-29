@@ -12,18 +12,21 @@ const app = new cdk.App();
 const env = { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION }
 const prefix = 'profile';
 
+// TODO: replace with the frontend's real domain once one exists (Cognito requires HTTPS callbacks except localhost)
+// single source of truth: every stack's CORS/callback config derives from this list
+const frontendOrigins = ['http://localhost:5173'];
+
 new GithubRoleStack(app, 'GithubRoleStack', { env });
 
 const ecr = new ECRStack(app, 'ECRStack', { env });
 
 const data = new DataStack(app, 'DataStack', { env, prefix });
 
-// TODO: replace with the frontend's real domain once one exists (Cognito requires HTTPS callbacks except localhost)
 const cognito = new CognitoStack(app, 'CognitoStack', {
   env,
   prefix,
-  callbackUrls: ['http://localhost:5173/', 'http://localhost:5173/callback'],
-  logoutUrls: ['http://localhost:5173/', 'http://localhost:5173/login'],
+  callbackUrls: frontendOrigins.flatMap((o) => [`${o}/`, `${o}/callback`]),
+  logoutUrls: frontendOrigins.flatMap((o) => [`${o}/`, `${o}/login`]),
   lambdaRepository: ecr.lambdaRepository,
   profileTable: data.profileTable,
   // TODO: replace with the real handler class once it exists in the Java backend repo
@@ -37,6 +40,7 @@ const photo = new PhotoStack(app, 'PhotoStack', {
   profileTable: data.profileTable,
   // TODO: replace with the real handler class once it exists in the Java backend repo
   photoValidationCmd: ['com.profile.PhotoValidationHandler::handleRequest'],
+  allowedOrigins: frontendOrigins,
 });
 
 new BackendStack(app, "BackendStack", {
@@ -47,6 +51,7 @@ new BackendStack(app, "BackendStack", {
   profileTable: data.profileTable,
   photoBucket: photo.bucket,
   cloudFrontDomain: photo.distribution.distributionDomainName,
+  allowedOrigins: frontendOrigins,
 });
 
-new FrontendStack(app, "FrontendStack", { env, repository: ecr.repository });
+new FrontendStack(app, "FrontendStack", { env, prefix });

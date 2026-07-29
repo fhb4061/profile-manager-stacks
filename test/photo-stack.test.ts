@@ -12,6 +12,7 @@ const stack = new PhotoStack(app, 'MyTestStack', {
     lambdaRepository: ecrStack.lambdaRepository,
     profileTable: dataStack.profileTable,
     photoValidationCmd: ['com.profile.PhotoValidationHandler::handleRequest'],
+    allowedOrigins: ['http://localhost:5173'],
 });
 const template = Template.fromStack(stack);
 
@@ -111,5 +112,12 @@ describe('Photo stack test', () => {
                 ],
             },
         });
+    });
+
+    test('outputs expose bucket, distribution and validation fn for manual ops', () => {
+        template.hasOutput('BucketName', {});
+        template.hasOutput('DistributionDomain', {});
+        template.hasOutput('DistributionId', {});
+        template.hasOutput('ValidationFunctionName', {});
     });
 });

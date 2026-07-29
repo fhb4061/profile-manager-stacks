@@ -118,18 +118,22 @@ export class CognitoStack extends cdk.Stack {
 
         new cdk.CfnOutput(this, 'UserPoolId', {
             value: userPool.userPoolId,
+            description: 'Cognito user pool ID',
         });
 
         new cdk.CfnOutput(this, 'UserPoolClientId', {
             value: userPoolClient.userPoolClientId,
+            description: 'App client ID used to build the Hosted UI login URL',
         });
 
         new cdk.CfnOutput(this, 'HostedUIDomain', {
             value: userPoolDomain.baseUrl(),
+            description: 'Base URL of the Cognito Hosted UI login page',
         });
 
         new cdk.CfnOutput(this, 'PostConfirmationFunctionName', {
             value: postConfirmationHandler.functionName,
+            description: 'Post-confirmation trigger Lambda, for manual invoke/log-tail/update-function-code',
         });
     }
 }

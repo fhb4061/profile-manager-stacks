@@ -29,4 +29,8 @@ describe('Data stack test', () => {
             expect(table.Properties.TableName).toBeUndefined();
         }
     });
+
+    test('output exposes the generated table name', () => {
+        template.hasOutput('TableName', {});
+    });
 });

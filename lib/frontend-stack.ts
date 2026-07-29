@@ -1,31 +1,50 @@
-import { aws_ec2, aws_ecr, aws_ecs, aws_ecs_patterns } from 'aws-cdk-lib';
+import { aws_cloudfront, aws_cloudfront_origins, aws_s3 } from 'aws-cdk-lib';
 import * as cdk from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
 
-type ECSStackProps = cdk.StackProps & {
-    repository: aws_ecr.Repository;
+type FrontendStackProps = cdk.StackProps & {
+    prefix: string;
 }
 
 export class FrontendStack extends cdk.Stack {
-    constructor(scope: Construct, id: string, props: ECSStackProps) {
+    public readonly bucket: aws_s3.Bucket;
+    public readonly distribution: aws_cloudfront.Distribution;
+
+    constructor(scope: Construct, id: string, props: FrontendStackProps) {
         super(scope, id, props);
 
-        // create vpc and cluter
-        const vpc = new aws_ec2.Vpc(this, "ProfileVPC", { maxAzs: 2 });
-        const cluster = new aws_ecs.Cluster(this, "ProfileCluster", { vpc });
+        this.bucket = new aws_s3.Bucket(this, `${props.prefix}-frontend-bucket`, {
+            blockPublicAccess: aws_s3.BlockPublicAccess.BLOCK_ALL,
+            removalPolicy: cdk.RemovalPolicy.DESTROY,
+            autoDeleteObjects: true,
+        });
 
-        // create fargate service with ALB at in the front
-        new aws_ecs_patterns.ApplicationLoadBalancedFargateService(this, "ProfileFrontend", {
-            cluster,
-            minHealthyPercent: 100,
-            maxHealthyPercent: 200,
-            circuitBreaker: {
-                enable: true,
-                rollback: true
+        this.distribution = new aws_cloudfront.Distribution(this, `${props.prefix}-frontend-distribution`, {
+            defaultBehavior: {
+                origin: aws_cloudfront_origins.S3BucketOrigin.withOriginAccessControl(this.bucket),
+                viewerProtocolPolicy: aws_cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
             },
-            taskImageOptions: {
-                image: aws_ecs.ContainerImage.fromEcrRepository(props.repository) // is there a way to make this tag reactive to changes?
-            }
-        })
+            defaultRootObject: 'index.html',
+            // SPA client-side routing: unknown paths still serve index.html instead of CloudFront's own 403/404
+            errorResponses: [
+                { httpStatus: 403, responseHttpStatus: 200, responsePagePath: '/index.html' },
+                { httpStatus: 404, responseHttpStatus: 200, responsePagePath: '/index.html' },
+            ],
+        });
+
+        new cdk.CfnOutput(this, 'BucketName', {
+            value: this.bucket.bucketName,
+            description: 'Frontend static site bucket (CFN-generated name) — deploy target for CI to sync built assets to',
+        });
+
+        new cdk.CfnOutput(this, 'DistributionId', {
+            value: this.distribution.distributionId,
+            description: 'For manual CloudFront invalidation after a deploy',
+        });
+
+        new cdk.CfnOutput(this, 'DistributionDomain', {
+            value: this.distribution.distributionDomainName,
+            description: 'CloudFront domain serving the frontend',
+        });
     }
 }

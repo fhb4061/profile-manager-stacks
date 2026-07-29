@@ -9,6 +9,7 @@ type ApiStackProps = cdk.StackProps & {
     profileTable: aws_dynamodb.Table;
     photoBucket: aws_s3.Bucket;
     cloudFrontDomain: string;
+    allowedOrigins: string[];
 }
 
 export class BackendStack extends cdk.Stack {
@@ -70,7 +71,7 @@ export class BackendStack extends cdk.Stack {
             proxy: false,
             cloudWatchRole: true,
             defaultCorsPreflightOptions: {
-                allowOrigins: aws_apigateway.Cors.ALL_ORIGINS,
+                allowOrigins: props.allowedOrigins,
                 allowMethods: aws_apigateway.Cors.ALL_METHODS,
                 allowHeaders: aws_apigateway.Cors.DEFAULT_HEADERS,
             },
@@ -112,6 +113,12 @@ export class BackendStack extends cdk.Stack {
 
         new cdk.CfnOutput(this, 'ApiFunctionName', {
             value: profileHandler.functionName,
+            description: 'API Lambda, for manual invoke/log-tail/update-function-code',
+        });
+
+        new cdk.CfnOutput(this, 'ApiUrl', {
+            value: api.url,
+            description: 'Base invoke URL for the profile API',
         });
     }
 }

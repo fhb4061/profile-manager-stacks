@@ -22,6 +22,7 @@ const photoStack = new PhotoStack(app, 'PhotoTestStack', {
     lambdaRepository: ecrStack.lambdaRepository,
     profileTable: dataStack.profileTable,
     photoValidationCmd: ['com.profile.PhotoValidationHandler::handleRequest'],
+    allowedOrigins: ['http://localhost:5173'],
 });
 const stack = new BackendStack(app, 'MyTestStack', {
     prefix: 'backend-test',
@@ -30,6 +31,7 @@ const stack = new BackendStack(app, 'MyTestStack', {
     profileTable: dataStack.profileTable,
     photoBucket: photoStack.bucket,
     cloudFrontDomain: photoStack.distribution.distributionDomainName,
+    allowedOrigins: ['http://localhost:5173'],
 });
 const template = Template.fromStack(stack);
 
@@ -143,6 +145,25 @@ describe('REST API stack test', () => {
                 }),
             },
         });
+    });
+
+    test('CORS preflight only allows the configured frontend origin, not a wildcard', () => {
+        const methods = template.findResources('AWS::ApiGateway::Method', {
+            Properties: { HttpMethod: 'OPTIONS' },
+        });
+        const optionsMethods = Object.values(methods);
+        expect(optionsMethods.length).toBeGreaterThan(0);
+        for (const method of optionsMethods) {
+            const headerValue =
+                method.Properties.Integration.IntegrationResponses[0].ResponseParameters[
+                    'method.response.header.Access-Control-Allow-Origin'
+                ];
+            expect(headerValue).toBe("'http://localhost:5173'");
+        }
+    });
+
+    test('output exposes the API base invoke URL', () => {
+        template.hasOutput('ApiUrl', {});
     });
 
     test('output exposes API fn name so backend CI can update its code', () => {
