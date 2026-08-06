@@ -10,38 +10,22 @@ export class GithubRoleStack extends cdk.Stack {
         const ecrStatement = new aws_iam.PolicyStatement({
             sid: 'ecrRepoAccess',
             actions: [
-                "ecr:DescribeImageScanFindings",
-                "ecr:GetLifecyclePolicyPreview",
-                "ecr:GetDownloadUrlForLayer",
-                "ecr:DescribeImageReplicationStatus",
-                "ecr:DescribeImageSigningStatus",
-                "ecr:ListTagsForResource",
-                "ecr:UploadLayerPart",
-                "ecr:BatchGetRepositoryScanningConfiguration",
-                "ecr:BatchImportUpstreamImage",
+                // ecr read permissions
                 "ecr:BatchGetImage",
-                "ecr:CompleteLayerUpload",
-                "ecr:TagResource",
-                "ecr:DescribeRepositories",
-                "ecr:GetImageCopyStatus",
-                "ecr:InitiateLayerUpload",
+                "ecr:GetDownloadUrlForLayer",
                 "ecr:BatchCheckLayerAvailability",
-                "ecr:GetRepositoryPolicy",
-                "ecr:GetLifecyclePolicy",
-                "ecr:PutImage",
-                "ecr:ValidatePullThroughCacheRule",
-                "ecr:GetRegistryPolicy",
-                "ecr:GetAccountSetting",
-                "ecr:DescribeRegistry",
-                "ecr:DescribeRepositoryCreationTemplates",
-                "ecr:GetSigningConfiguration",
-                "ecr:GetRegistryScanningConfiguration"
+                "ecr:DescribeRepositories",
+                // ecr write permissions
+                "ecr:InitiateLayerUpload",
+                "ecr:UploadLayerPart",
+                "ecr:CompleteLayerUpload",
+                "ecr:PutImage"
             ],
             resources: [`arn:aws:ecr:*:${process.env.CDK_DEFAULT_ACCOUNT}:repository/*`]
         });
 
-        // statement to login into ecr from github actions
-        const wildStatement = new aws_iam.PolicyStatement({
+        // allow login into respository
+        const authEcrStatement = new aws_iam.PolicyStatement({
             sid: 'ecrGlobalAccess',
             actions: [
                 "ecr:GetAuthorizationToken",
@@ -50,10 +34,10 @@ export class GithubRoleStack extends cdk.Stack {
         });
 
         // create managed policy
-        const managedPolicy = new aws_iam.ManagedPolicy(this, "GithubActionPolicy", {
-            managedPolicyName: "github-action-policies",
-            description: "Access needed by Github Actions to run CI/CD operations",
-            statements: [ecrStatement, wildStatement]
+        const ecrManagedPolicy = new aws_iam.ManagedPolicy(this, "GithubActionPolicy", {
+            managedPolicyName: "ecr-read-write-policy",
+            description: "Allows read and write to any ECR in my account",
+            statements: [ecrStatement, authEcrStatement]
         });
 
         // create Identity provider first
@@ -66,7 +50,8 @@ export class GithubRoleStack extends cdk.Stack {
         // create new Role entrusted to idProvider with managed policies in place
         const githubRole = new aws_iam.Role(this, "GithubRole", {
             roleName: "github-action-role",
-            managedPolicies: [managedPolicy],
+            description: "Allow github action workflows to access certain AWS resources",
+            managedPolicies: [ecrManagedPolicy],
             assumedBy: new aws_iam.WebIdentityPrincipal(
                 idProvider.openIdConnectProviderArn,
                 {
