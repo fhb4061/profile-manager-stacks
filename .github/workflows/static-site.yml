@@ -4,7 +4,7 @@ name: static-site
 # Caller example:
 #   jobs:
 #     site:
-#       uses: fhb4061/profile-cdk/.github/workflows/static-site.yml@master
+#       uses: fhb4061/profile-manager-stacks/.github/workflows/static-site.yml@master
 #       with:
 #         build-cmd: npm run build
 #         dist-dir: dist
@@ -49,10 +49,10 @@ jobs:
       - name: Checkout site repo
         uses: actions/checkout@v4
 
-      - name: Checkout infra (profile-cdk)
+      - name: Checkout infra (profile-manager-stacks)
         uses: actions/checkout@v4
         with:
-          repository: fhb4061/profile-cdk
+          repository: fhb4061/profile-manager-stacks
           path: infra
 
       - uses: actions/setup-node@v4
@@ -109,10 +109,10 @@ jobs:
     if: inputs.action == 'destroy'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout infra (profile-cdk)
+      - name: Checkout infra (profile-manager-stacks)
         uses: actions/checkout@v4
         with:
-          repository: fhb4061/profile-cdk
+          repository: fhb4061/profile-manager-stacks
           path: infra
 
       - uses: actions/setup-node@v4
