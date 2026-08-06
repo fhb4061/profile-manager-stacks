@@ -1,17 +1,31 @@
 import * as cdk from 'aws-cdk-lib/core';
 import { Match, Template } from 'aws-cdk-lib/assertions';
-import { FrontendStack } from '../lib/frontend-stack';
+import { siteNameFromRepository, StaticSiteStack } from '../lib/static-site-stack';
+
+describe('Static site name derivation', () => {
+    test('derives pascal-case stack name from github repository', () => {
+        expect(siteNameFromRepository('fhb4061/profile-blog')).toEqual({
+            stackName: 'ProfileBlogStaticSite',
+            resourcePrefix: 'profile-blog',
+        });
+    });
+
+    test('rejects repos outside the profile-* naming convention', () => {
+        expect(() => siteNameFromRepository('fhb4061/other-app')).toThrow(/profile-/);
+    });
+});
 
 const app = new cdk.App();
-const stack = new FrontendStack(app, 'MyTestStack', { prefix: 'frontend-test' });
+const stack = new StaticSiteStack(app, 'MyTestStack', { repository: 'fhb4061/profile-blog' });
 const template = Template.fromStack(stack);
 
-describe('Frontend stack test', () => {
-    test('bucket is private and destroyable', () => {
+describe('Static site stack test', () => {
+    test('bucket is private, destroyable, and named profile-* so the CI sync policy can scope to it', () => {
         template.hasResource('AWS::S3::Bucket', {
             DeletionPolicy: 'Delete',
             UpdateReplacePolicy: 'Delete',
             Properties: {
+                BucketName: 'profile-blog-static-site',
                 PublicAccessBlockConfiguration: {
                     BlockPublicAcls: true,
                     BlockPublicPolicy: true,
@@ -22,7 +36,7 @@ describe('Frontend stack test', () => {
         });
     });
 
-    test('CloudFront distribution serves the bucket via Origin Access Control', () => {
+    test('CloudFront serves the bucket via Origin Access Control, HTTPS only', () => {
         template.resourceCountIs('AWS::CloudFront::Distribution', 1);
         template.hasResourceProperties('AWS::CloudFront::OriginAccessControl', {
             OriginAccessControlConfig: Match.objectLike({
@@ -30,19 +44,19 @@ describe('Frontend stack test', () => {
                 SigningBehavior: 'always',
             }),
         });
-    });
-
-    test('serves index.html as the default root object', () => {
         template.hasResourceProperties('AWS::CloudFront::Distribution', {
             DistributionConfig: Match.objectLike({
-                DefaultRootObject: 'index.html',
+                DefaultCacheBehavior: Match.objectLike({
+                    ViewerProtocolPolicy: 'redirect-to-https',
+                }),
             }),
         });
     });
 
-    test('unknown paths fall back to index.html for client-side routing', () => {
+    test('serves index.html at the root and for unknown paths (client-side routing)', () => {
         template.hasResourceProperties('AWS::CloudFront::Distribution', {
             DistributionConfig: Match.objectLike({
+                DefaultRootObject: 'index.html',
                 CustomErrorResponses: Match.arrayWith([
                     Match.objectLike({ ErrorCode: 403, ResponseCode: 200, ResponsePagePath: '/index.html' }),
                     Match.objectLike({ ErrorCode: 404, ResponseCode: 200, ResponsePagePath: '/index.html' }),
@@ -51,7 +65,7 @@ describe('Frontend stack test', () => {
         });
     });
 
-    test('outputs expose bucket and distribution for the deploy pipeline', () => {
+    test('outputs expose bucket, distribution id, and site URL for the deploy workflow', () => {
         template.hasOutput('BucketName', {});
         template.hasOutput('DistributionId', {});
         template.hasOutput('DistributionDomain', {});

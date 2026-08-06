@@ -16,7 +16,7 @@ describe("Github role, policy, and provider test", () => {
         });
     });
 
-    test("role can only be assumed by profile-lambda repo on master branch", () => {
+    test("role can only be assumed by profile-* repos on master branch", () => {
         template.hasResourceProperties("AWS::IAM::Role", {
             AssumeRolePolicyDocument: {
                 Statement: [
@@ -27,7 +27,7 @@ describe("Github role, policy, and provider test", () => {
                                 "token.actions.githubusercontent.com:aud": ["sts.amazonaws.com"]
                             },
                             StringLike: {
-                                "token.actions.githubusercontent.com:sub": "repo:fhb4061/profile-lambda:ref:refs/heads/master"
+                                "token.actions.githubusercontent.com:sub": "repo:fhb4061/profile-*:ref:refs/heads/master"
                             }
                         }
                     }
@@ -49,8 +49,8 @@ describe("Github role, policy, and provider test", () => {
         template.resourceCountIs("AWS::IAM::ManagedPolicy", 0);
         template.hasResourceProperties("AWS::IAM::Policy", {
             PolicyDocument: {
-                Statement: [
-                    {
+                Statement: Match.arrayWith([
+                    Match.objectLike({
                         Sid: "ecrRepoAccess",
                         Action: [
                             "ecr:BatchGetImage",
@@ -63,14 +63,14 @@ describe("Github role, policy, and provider test", () => {
                             "ecr:PutImage"
                         ],
                         Effect: "Allow"
-                    },
-                    {
+                    }),
+                    Match.objectLike({
                         Sid: "ecrGlobalAccess",
                         Action: "ecr:GetAuthorizationToken",
                         Effect: "Allow",
                         Resource: "*"
-                    }
-                ]
+                    })
+                ])
             }
         });
     })
@@ -99,4 +99,88 @@ describe("Github role, policy, and provider test", () => {
     test("output exposes the role ARN for GitHub Actions workflow config", () => {
         template.hasOutput('RoleArn', {});
     })
+
+    test("deploy role can only be assumed by profile-* repos on master branch", () => {
+        template.hasResource("AWS::IAM::Role", {
+            Properties: {
+                RoleName: "github-deploy-role",
+                AssumeRolePolicyDocument: {
+                    Statement: [
+                        {
+                            Action: "sts:AssumeRoleWithWebIdentity",
+                            Condition: {
+                                StringEquals: {
+                                    "token.actions.githubusercontent.com:aud": ["sts.amazonaws.com"]
+                                },
+                                StringLike: {
+                                    "token.actions.githubusercontent.com:sub": "repo:fhb4061/profile-*:ref:refs/heads/master"
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        });
+    });
+
+    test("deploy role's only permission is assuming the CDK bootstrap roles", () => {
+        template.hasResourceProperties("AWS::IAM::Policy", {
+            PolicyDocument: {
+                Statement: [
+                    {
+                        Sid: "assumeCdkBootstrapRoles",
+                        Action: "sts:AssumeRole",
+                        Effect: "Allow",
+                        Resource: {
+                            "Fn::Join": ["", [
+                                "arn:aws:iam::",
+                                { Ref: "AWS::AccountId" },
+                                ":role/cdk-*"
+                            ]]
+                        }
+                    }
+                ]
+            }
+        });
+    });
+
+    test("deploy role ARN is exported for consumer workflows", () => {
+        template.hasOutput('DeployRoleArn', {});
+    });
+
+    test("action role can sync static site buckets scoped to profile-*", () => {
+        template.hasResourceProperties("AWS::IAM::Policy", {
+            PolicyDocument: {
+                Statement: Match.arrayWith([
+                    Match.objectLike({
+                        Sid: "staticSiteSync",
+                        Action: ["s3:ListBucket", "s3:PutObject", "s3:DeleteObject"],
+                        Effect: "Allow",
+                        Resource: ["arn:aws:s3:::profile-*", "arn:aws:s3:::profile-*/*"]
+                    })
+                ])
+            }
+        });
+    });
+
+    test("action role can invalidate CloudFront distributions in this account only", () => {
+        template.hasResourceProperties("AWS::IAM::Policy", {
+            PolicyDocument: {
+                Statement: Match.arrayWith([
+                    Match.objectLike({
+                        Sid: "staticSiteInvalidation",
+                        Action: "cloudfront:CreateInvalidation",
+                        Effect: "Allow",
+                        Resource: {
+                            "Fn::Join": ["", [
+                                "arn:aws:cloudfront::",
+                                { Ref: "AWS::AccountId" },
+                                ":distribution/*"
+                            ]]
+                        }
+                    })
+                ])
+            }
+        });
+    });
 });

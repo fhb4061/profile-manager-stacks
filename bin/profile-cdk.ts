@@ -3,7 +3,6 @@ import * as cdk from 'aws-cdk-lib/core';
 import { ECRStack } from '../lib/ecr-stack';
 import { GithubRoleStack } from '../lib/github-role-stack';
 import { BackendStack } from '../lib/backend-stack';
-import { FrontendStack } from '../lib/frontend-stack';
 import { CognitoStack } from '../lib/cognito-stack';
 import { DataStack } from '../lib/data-stack';
 import { PhotoStack } from '../lib/photo-stack';
@@ -65,10 +64,4 @@ new BackendStack(app, "BackendStack", {
   cloudFrontDomain: photo.distribution.distributionDomainName,
   allowedOrigins: frontendOrigins,
   description: "Stack includes API Gateway and a lambda function that reads/updates the caller's profile, lists other users' public profiles, and issues presigned photo upload URLs",
-});
-
-new FrontendStack(app, "FrontendStack", {
-  env,
-  prefix,
-  description: "Stack includes S3 bucket and CloudFront distribution as the deploy target for the frontend app, built assets synced in by CI"
 });
