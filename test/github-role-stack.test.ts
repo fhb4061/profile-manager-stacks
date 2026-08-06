@@ -28,7 +28,7 @@ describe("Github role, policy, and provider test", () => {
     test("Github Policy created", () => {
         template.hasResource("AWS::IAM::ManagedPolicy", {
             Properties: {
-                ManagedPolicyName: "github-action-policies",
+                ManagedPolicyName: "ecr-read-write-policy",
             }
         });
     })
